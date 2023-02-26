@@ -2,21 +2,44 @@
 ## Selenium, BeautifulSoup의 조합
 ### 셀레니움 + 텔레그램
 
+'''
+현재 진행 상황
+
+목표 : 
+원하는 날짜 IMAX관 열리면
+텔레그램을 통해 메시지 전송
+
+이유 :
+- 서울에 있는 용산 아이파크몰 같은 경우에 IMAX관이 열림과 동시에 매진되고는 함
+- 따라서 본인이 원하는 날짜에 바로 예매 할 수 있도록 영화오픈알리미를 통해 예매를 가능 하도록 함
+
+방법 :
+셀레니움을 사용한 크롤링,
+스케쥴러를 통한 정보 갱신
+텔레그램을 통해 메시지 전송
+'''
+
 # imax여부
 from selenium import webdriver
 from bs4 import BeautifulSoup as bs
 import telegram
 from apscheduler.schedulers.blocking import BlockingScheduler
+import asyncio
 
 # 텔레그램 토큰
 chat_token = "6140642407:AAEancz1HDU3-SwDYPDa7NmWFBuLO8_BVe0"
 chat = telegram.Bot(token = chat_token)
+chat_id = '5508231825'
 
 # Selenium_webdrivet 위치 지정
-driver = webdriver.Chrome('../chromedriver')
+# 로그 숨기기
+options = webdriver.ChromeOptions()
+options.add_experimental_option('excludeSwitches', ['enable-logging'])
+driver = webdriver.Chrome('chromedriver.exe', options = options)
 
 # 용산 아이파크몰 url 접속
-driver.get('http://www.cgv.co.kr/theaters/?areacode=01&theaterCode=0013&date=20230221')
+driver.get('http://www.cgv.co.kr/theaters/?areacode=01&theaterCode=0013&date=20230227')
+
 # iframe 전환
 ## 상영 시간 부분만 출력하기 위함
 driver.switch_to.frame("ifrm_movie_time_table")
@@ -36,16 +59,19 @@ def find_imax():
         # 영화 제목 출력
         title = imax.select_one('div.info-movie > a > strong').text.strip()
         # 텔레그램에 메시지 전송
-        chat.sendMessage(chat_id = 5508231825, text = title + 'IMAX 예매가 열렸습니다.')
+        asyncio.run(chat.sendMessage(chat_id = chat_id, text = title + 'IMAX 예매가 열렸습니다.'))
         # 30초마다 cgv 검사해서 imax가 열리면 스케줄러 종료
         sched.pause()
 
-    # else:
-    #     # 텔레그램에 메시지 전송
-    #     chat.sendMessage(chat_id = 5508231825, text = 'IMAX 예매가 열리지 않았습니다.')
+    else:
+        # 텔레그램에 메시지 전송
+        asyncio.run(chat.sendMessage(chat_id = chat_id, text = 'IMAX 예매가 열리지 않았습니다.'))
+
+
+    
 
 sched = BlockingScheduler()
 # 30초마다 반복하여 출력
-sched.add_job(find_imax, 'interval', seconds=30)
+sched.add_job(find_imax, 'interval', seconds=10)
 sched.start()
 
